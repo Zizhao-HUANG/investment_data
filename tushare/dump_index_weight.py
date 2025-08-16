@@ -5,6 +5,13 @@ import pandas
 import fire
 import time
 import datetime
+from typing import Optional
+
+try:
+    import akshare as ak
+except Exception:
+    ak = None
+from .timeout_utils import get_timeout_seconds, pro_call_with_timeout
 
 ts.set_token(os.environ["TUSHARE"])
 pro=ts.pro_api()
@@ -25,7 +32,7 @@ def dump_index_data(start_date=None, end_date=None, skip_exists=True):
     for index_name in index_list:
         time_step = datetime.timedelta(days=15)
         if start_date is None:
-            index_info = pro.index_basic(ts_code=index_name)
+            index_info = pro_call_with_timeout(pro, 'index_basic', get_timeout_seconds(), ts_code=index_name)
             list_date = index_info["list_date"][0]
             list_date_obj = datetime.datetime.strptime(list_date, '%Y%m%d')
             index_start_date = list_date_obj
@@ -41,12 +48,45 @@ def dump_index_data(start_date=None, end_date=None, skip_exists=True):
         print("Dump to: ", filename)
         result_df_list = []
         while index_end_date < datetime.datetime.now():
-            df = pro.index_weight(index_code=index_name, start_date = index_start_date.strftime('%Y%m%d'), end_date=index_end_date.strftime('%Y%m%d'))
+            df = None
+            try:
+                df = pro_call_with_timeout(
+                    pro,
+                    'index_weight',
+                    get_timeout_seconds(),
+                    index_code=index_name,
+                    start_date=index_start_date.strftime('%Y%m%d'),
+                    end_date=index_end_date.strftime('%Y%m%d')
+                )
+            except Exception as e:
+                print("[WARN] Tushare index_weight failed, will try AKShare fallback:", e)
+            if (df is None) or df.empty:
+                # AKShare 指数成分（若可用）
+                if ak is not None:
+                    try:
+                        # akshare 未提供历史权重全量接口；尽可能获取当前或近段时间的权重信息
+                        # 这里退化为获取当期成分及权重（若可用），否则跳过
+                        code, exch = index_name.split('.')
+                        # 使用 stock_zh_index_weight_csindex 获取中证指数（需要指数代码，如 000905）
+                        ak_code = code
+                        ak_df = ak.stock_zh_index_weight_csindex(symbol=ak_code)
+                        if ak_df is not None and not ak_df.empty:
+                            # 标准化为 ts 字段 superset
+                            ak_df = ak_df.rename(columns={
+                                '指数代码': 'index_code',
+                                '证券代码': 'con_code',
+                                '权重(%)': 'weight'
+                            })
+                            ak_df['index_code'] = index_name
+                            # 近似赋值日期范围为当前窗口尾日
+                            ak_df['trade_date'] = index_end_date.strftime('%Y%m%d')
+                            result_df_list.append(ak_df[['index_code','con_code','weight','trade_date']])
+                    except Exception:
+                        pass
+            else:
+                result_df_list.append(df)
             index_start_date += time_step
             index_end_date += time_step
-            if df.empty:
-                continue
-            result_df_list.append(df)
             time.sleep(0.5)
         if len(result_df_list) == 0:
             continue

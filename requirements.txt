@@ -1,4 +1,6 @@
 tushare==1.2.89
 SQLAlchemy==2.0.29
+akshare>=1.13.62
+yahooquery>=2.3.7
 pymysql
 fire

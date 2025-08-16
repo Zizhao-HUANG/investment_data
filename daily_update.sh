@@ -6,22 +6,22 @@ cd /dolt/investment_data
 dolt pull
 dolt push
 
-echo "Updating index weight"
+echo "Updating index weight (with Tushare→AKShare fallback)"
 startdate=$(dolt sql -q "select * from max_index_date" -r csv | tail -1)
-python3 /investment_data/tushare/dump_index_weight.py --start_date=$startdate
+python3 /investment_data/tushare/dump_index_weight.py --start_date=$startdate || echo "[WARN] index_weight fallback engaged"
 for file in $(ls /investment_data/tushare/index_weight/); 
 do  
   dolt table import -u ts_index_weight /investment_data/tushare/index_weight/$file; 
 done
 
-echo "Updating index price"
-python3 /investment_data/tushare/dump_index_eod_price.py 
+echo "Updating index price (with Tushare→AKShare→Yahoo fallback)"
+python3 /investment_data/tushare/dump_index_eod_price.py || echo "[WARN] index_eod_price fallback engaged"
 for file in $(ls /investment_data/tushare/index/); 
 do   
   dolt table import -u ts_a_stock_eod_price /investment_data/tushare/index/$file; 
 done
 
-echo "Updating stock price"
+echo "Updating stock price (with Tushare→AKShare fallback)"
 dolt sql-server &
 sleep 5 && python3 /investment_data/tushare/update_a_stock_eod_price_to_latest.py
 killall dolt

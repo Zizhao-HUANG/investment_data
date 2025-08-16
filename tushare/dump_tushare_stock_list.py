@@ -2,13 +2,14 @@ import tushare as ts
 import os
 import datetime
 import pandas
+from .timeout_utils import get_timeout_seconds, pro_call_with_timeout
 ts.set_token(os.environ["TUSHARE"])
 pro=ts.pro_api()
-d_data = pro.stock_basic(list_status="D", fields=["ts_code","symbol","exchange","list_date","delist_date"])
+d_data = pro_call_with_timeout(pro, 'stock_basic', get_timeout_seconds(), list_status="D", fields=["ts_code","symbol","exchange","list_date","delist_date"])
 d_data["delist_date"] = pandas.to_datetime(d_data["delist_date"], format="%Y%m%d")
 d_data["delist_date"] = d_data["delist_date"].dt.strftime("%Y-%m-%d")
 
-l_data = pro.stock_basic(list_status="L", fields=["ts_code","symbol","exchange","list_date","delist_date"])
+l_data = pro_call_with_timeout(pro, 'stock_basic', get_timeout_seconds(), list_status="L", fields=["ts_code","symbol","exchange","list_date","delist_date"])
 
 data = pandas.concat([d_data, l_data])
 data["list_date"] = pandas.to_datetime(data["list_date"], format="%Y%m%d")
