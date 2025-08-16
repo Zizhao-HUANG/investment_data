@@ -11,7 +11,15 @@ try:
     import akshare as ak
 except Exception:
     ak = None
-from .timeout_utils import get_timeout_seconds, pro_call_with_timeout
+try:
+    from .timeout_utils import get_timeout_seconds, pro_call_with_timeout
+except Exception:
+    try:
+        from timeout_utils import get_timeout_seconds, pro_call_with_timeout
+    except Exception:
+        import sys, os
+        sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+        from timeout_utils import get_timeout_seconds, pro_call_with_timeout
 
 ts.set_token(os.environ["TUSHARE"])
 pro=ts.pro_api()
