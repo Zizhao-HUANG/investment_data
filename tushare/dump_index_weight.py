@@ -39,23 +39,27 @@ def dump_index_data(start_date=None, end_date=None, skip_exists=True):
 
     for index_name in index_list:
         time_step = datetime.timedelta(days=15)
+        now_dt = datetime.datetime.now()
         if start_date is None:
             index_info = pro_call_with_timeout(pro, 'index_basic', get_timeout_seconds(), ts_code=index_name)
             list_date = index_info["list_date"][0]
             list_date_obj = datetime.datetime.strptime(list_date, '%Y%m%d')
-            index_start_date = list_date_obj
+            # 动态默认起始：max(上市日, 当前日期-14天)
+            dynamic_start = max(list_date_obj, now_dt - datetime.timedelta(days=14))
+            index_start_date = dynamic_start
         else:
             index_start_date = datetime.datetime.strptime(str(start_date), '%Y%m%d')
-        
+
         if end_date is None:
-            index_end_date = index_start_date + time_step
+            # 动态默认结束：不超过当前日期
+            index_end_date = min(index_start_date + time_step, now_dt)
         else:
             index_end_date = datetime.datetime.strptime(str(end_date), '%Y%m%d')
 
         filename = f'{file_path}/index_weight/{index_name}.csv'
         print("Dump to: ", filename)
         result_df_list = []
-        while index_end_date < datetime.datetime.now():
+        while index_end_date <= now_dt:
             df = None
             try:
                 df = pro_call_with_timeout(

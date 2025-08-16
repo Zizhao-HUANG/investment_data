@@ -111,7 +111,12 @@ def _fetch_index_via_yahoo(ts_code: str, start_date: str, end_date: str) -> Opti
     except Exception:
         return None
 
-def dump_index_data(start_date="19900101", end_date="20500101", skip_exists=True):
+def dump_index_data(start_date=None, end_date=None, skip_exists=True):
+    now_dt = datetime.datetime.now()
+    if start_date is None:
+        start_date = (now_dt - datetime.timedelta(days=14)).strftime('%Y%m%d')
+    if end_date is None:
+        end_date = now_dt.strftime('%Y%m%d')
     trade_date_df = get_trade_cal(start_date, end_date)
 
     if not os.path.exists(f"{file_path}/index/"):
